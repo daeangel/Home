@@ -1,0 +1,858 @@
+---
+title: "Does Defense Win NBA games?"
+author: "Daniel Angel"
+date: "8/14/2021"
+output:
+  word_document: default
+  pdf_document: default
+  
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(datetime)
+library(tidyverse)
+library(purrr)
+library(corrplot)
+library(corrr)
+library(stats)
+library(explore)
+```
+
+# Step 1
+
+##	Provide an introduction that explains the problem statement you are addressing. Why would someone be interested in this?
+
+“Does defense win championships in the sport of basketball?” This is an adage which seems as old as the existence of team sports. Although, the phrase was originally coined in reference to the game of football due to my personal interest and the fact that this phrase has constantly been applied to basketball as well I will direct my attention at this question in the frame of basketball.
+
+Why should someone be interested in this? I am interested in this and I don’t really know why besides the fact that I am a fan of basketball. As the three point shot has gained popularity and scores have trended upward maybe the vast majority of teams are ignoring the best way to get better which is to improve their defense. To the financially minded, the NBA generates revenues of around 10 billion dollars annually. A definitive answer to this question would help guide scouting, recruiting, drafting, roster and coaching strategies. 
+
+##	Draft 5-10 Research questions that focus on the problem statement.
+
+Are teams  who perform well defensively during the regular season more likely to win their games?
+
+Do teams that are good at defense actually win more championships or put a different way what characteristics do championship teams share?
+
+Which traditional defensive stats are the best predictor of success? Points Allowed? Steals? Blocks?
+
+Are there any historical trends concerning defensive performance, i.e. defensive statistics, such as an improvement or worsening over time?
+
+Can postseason success be predicted by defensive statistics?
+
+##	Provide a concise explanation of how you plan to address this problem statement.
+
+I plan to get to the bottom of this using statistical analysis, exploratory data analysis, regression and machine learning. I will access the historical data from the NBA using all years since defensive stats have been kept (1986)
+
+##	Discuss how your proposed approach will address (fully or partially) this problem.
+
+My hypothesis is that a good defense is a hallmark of a successful  basketball team. Through my research I will either be able to confirm or reject the hypothesis. Potentially, I will get results which will surprise me and reveal new exciting insights.
+
+##	Do some digging and find at least 3 datasets that you can use to address the issue. (There is not a required number of fields or rows for these datasets
+
+It was possible to use the same source of data but extend it back further however I chose the selection of years that I did because it includes all modern defensive statistics and is right around when the 3 point shot started picking up steam. It is also possible to use data from basketball-reference.com or stats.nba.com if I familiarize myself with their API’s, although the NBA’s is request-limited, so it is better to use the data set where someone has already done all the leg work. Also, they data should be consistent so it shouldn’t matter the source.
+
+I also could have used collegiate data or WNBA data but since I am most familiar with the NBA that is what I went with.
+
+This is an example of an NCAA dataset which goes back to 2013. It also contains 2013-2019 in a single merged CSV. https://www.kaggle.com/andrewsundberg/college-basketball-dataset
+
+This is an example of a WNBA dataset which contains box-score data going back to 1997. https://www.kaggle.com/rafaelgreca/wnba-games-box-score-since-1997
+
+##	Original source where the data was obtained is cited and, if possible, hyperlinked.
+
+I obtained the data from the GitHub repository of a LA Times writer. I used the game logs as opposed to the play-by-play data but only going back to the 1986 season. The writer, Ryan Menezes, collected the data for an article on Lawler’s Law which is the saying that the first team to reach 100 points will win.
+
+https://github.com/ryanvmenezes/lawlers-law/tree/master/data
+
+That is the root directory.
+
+https://github.com/ryanvmenezes/lawlers-law/tree/master/data/logs
+
+This is the directory containing the game logs.
+
+o	Source data is thoroughly explained (i.e. what was the original purpose of the data, when was it collected, how many variables did the original have, explain any peculiarities of the source data such as how missing values are recorded, or how data was inputted, etc.). 
+
+The data was collected in April 2019 from the NBA’s website. The original has 29 variables. Some are redundant, such as team name, team abbreviation, and team ID. Video available is numerical but seems more like a factor or binary and won’t be useful for my analysis. Each game is recorded twice once for each game participating. Game ID numbers are unique but Team IDs are the same across the multiple seasons.
+
+The LA Times author says in reference to the data :
+
+“This folder contains all NBA game logs (since 1950) and play-by-play data (since 1997).
+
+Thanks to Swar Patel and all those who have contributed to the nba_api python package. It makes grabbing stats.nba.com data incredibly easy.
+
+There is one hurdle to the data collection: The API for stats.nba.com is rate-limited, meaning you can only make a certain number of requests in a given time period. (I don't know what the number or the length of time is.) To get around this, I made sure to not to make the same call twice in my python code by checking if the output file existed already. A library like requests_cache for python can also help with this process.
+
+Still, it took a couple of days to get all 27,000-plus data files. So I posted them here for others to use.
+
+The code that gathered the data is in two python scripts.”
+
+## Identify the packages that are needed for your project.
+Ggplot2, tidyverse, roxygen2, dplyr, rmarkdown, tidymodels.
+
+##	What types of plots and tables will help you to illustrate the ﬁndings to your research questions?
+Scatterplots, heat maps, and linear regression models would probably help me better illustrate my findings.
+Bar charts and box plots might also prove useful.
+
+##	What do you not know how to do right now that you need to learn to answer your research questions?
+Merging or combining csv files into a single data frame or keeping them separate and using the data from each from across the csvs. Also I need to learn how to sort or select data based on variables.
+
+
+# Step 2
+
+## How to import and clean my data
+Games that go into overtime, beyond the 48 minutes of regulation play, must be normalized based on the number of overtime periods.
+
+Several variables will not prove useful in this inquiry and thus will be removed. These are: Season ID, Team ID, Team Name, Game ID, Matchup, FTM, FT_PCT, and Video_Available. FTM and FT_PCT while they could be important for other analyses has nothing to do with the defense of the team but moreso the shooting ability of the free throw shot taker or the effect of a noisy crowd.
+
+Win/Loss is a string but will be converted to a number 1 or 0, depending, which will allow for the possibility of binary classification of the data set. However, this is not necessary because whether the team won or lost can also be determined by whether the plus/minus is positive or negative yet I still think doing this conversion will make the task easier.
+
+There are not many null or empty values which is nice since that will not need to be heavily addressed.
+
+1999 and 2011 were shortened seasons of 50 and 66 games, respectively, so if totals are looked at these data sets will need to be normalized.
+
+
+This first code chunk actually demonstrates how I merged all 34 years of game data into a single csv.
+I know there is a more efficient way to do this but I did this early on in my experience with R so I
+am leaving it as is.
+```{r, echo=TRUE, eval=FALSE}
+year_range1 <- (86:99)
+year_list1 <- NULL
+
+for (digis in year_range1) {
+  year_char <- paste(19,digis, sep = "")
+  year_list1 <- append(year_list1, year_char)}
+
+year_log_dir <- paste("data", "proj", "log-", sep="\\")
+
+for (abc in (1:length(year_list1))) {
+  year <- year_list1[abc]
+  year_log_path <- paste(year_log_dir, year, ".csv", sep="")
+  season_log <- read.csv(year_log_path)
+  abcd <-abc+1985
+  assign(paste('seasonlog_',abcd,sep=''),season_log)}
+
+year_range2 <- (0:9)
+year_list2 <- NULL
+
+for (digis2 in year_range2) {
+  year_char2 <- paste(200,digis2, sep = "")
+  year_list2 <- append(year_list2, year_char2)}
+
+for (abc2 in (1:length(year_list2))) {
+  year2 <- year_list2[abc2]
+  year_log_path2 <- paste(year_log_dir, year2, ".csv", sep="")
+  season_log2 <- read.csv(year_log_path2)
+  def <- abc2+length(year_range1)+1985
+  assign(paste('seasonlog_',def,sep=''),season_log2)}
+
+year_range3 <- (10:19)
+year_list3 <- NULL
+
+for (digis3 in year_range3) {
+  year_char3 <- paste(20,digis3, sep = "")
+  year_list3 <- append(year_list3, year_char3)}
+
+
+for (abc3 in (1:length(year_list3))) {
+  year3 <- year_list3[abc3]
+  year_log_path3 <- paste(year_log_dir, year3, ".csv", sep="")
+  season_log3 <- read.csv(year_log_path3)
+  ghi <- abc3+length(year_range1)+length(year_range2)+1985
+  assign(paste('seasonlog_',ghi,sep=''),season_log3)}
+
+rm(season_log, season_log2, season_log3)
+
+x <- sapply(sapply(ls(), get), is.data.frame)
+
+l <- ls()
+l[sapply(l, function(x) is.data.frame(get(x)))]
+
+all_seasons <- data.frame()
+
+for (thing in (1:length(x))){
+  if (x[thing]){
+    all_seasons <- rbind(all_seasons, get(l[thing]))}
+  }
+
+str(all_seasons)
+
+```
+This code chunk demonstrates me removing unneccesary variables, removing the gamewhich was not competed due to the Boston Marathon Bombing and thus no games exist, and replacing NA values with zeros. The only thing really missing is the export statement which creates the new merged CSV.
+
+```{r, echo=TRUE, eval=FALSE}
+cleaner_all_seasons <- all_seasons[-c(1,2,4,5,7,16,18,29)]
+
+which(is.na(cleaner_all_seasons$FG_PCT))
+cleanest_all_seasons <- cleaner_all_seasons[-c(63091, 63092),]
+
+cleanest_all_seasons[is.na(cleanest_all_seasons)] <- 0
+```
+
+Further cleaning was performed but is not in these code chunks because it would be long such as normalizing for overtime games, the conversion of Win/LOss to binary and the creation of new variables. Since I already cleaned and merged my dataset I can actually just load it now.
+```{r}
+setwd("C:/Users/Daniel/Documents/data/proj")
+nbadata <- read.csv("nbagames1985to2019_cleaned.csv")
+names(nbadata)[names(nbadata) == "ï..TEAM_ABBREVIATION"] <- "TEAM_ABBREVIATION"
+
+```
+
+
+
+## What does the final data set look like?
+I reduced the number of variables by 3. I did this by removing 8 variables and adding 5 additional. I got rid of two game logs for one cancelled game that had no data. I converted Win/Loss column into a numeric type. I am including 4 rows in my preview which equates to two games.
+
+Besides Team abbreviation every variable is integer or numeric. In fact practically every one is integer with the exception of the percentages and rebound rate.
+
+```{r, echo=FALSE} 
+str(nbadata)
+head(nbadata, 4)
+
+```
+
+## Questions for future steps.
+The hardest part is if I need to remove outliers. I don’t believe I  have to but maybe there is a quick way to tell if the removal will have a significant impact.
+
+Another question would be to address how to approach such a large data set of 77,884 observations. Clearly I might want to approach it bit by bit but how best to do this. I also may need to decide whether opponents' points or plus
+minus is a better indicator of defense.
+
+## What information is not self-evident?
+At this point an answer is not self-evident since no analysis has been performed. Further work must be done in this area.
+
+Perhaps the meaning of some of the variables is not self-evident.
+
+TEAM_ABBREVIATION is a 3 letter abbreviation which
+corresponds with the City, State, or place name of the team. WL is whether a team won or lost, 1 is a win and 0 is a loss. This can be cross-referenced with PLUS_MINUS. PLUS_MINUS is a measure of the margin of victory or defeat negative numbers are losses and positive numbers indicate wins. MIN is short for minutes.
+
+FGM, FGA, FG_PCT are the number of shots made, the number of shots attempted and the percentage of attempted shots which were made respectively. FG3M, FG3A, and FG3_PCT are similar to the prior but refer to three pointers(attempted/made) only. OREB and DREB are offensive and defensive rebounds. FTA is free throw attempts which are a direct result of a personal foul on a field goal attempt. REB is the total rebounds and is a sum of OREB and DREB. STL is steals, BLK is blocks, TOV is turnovers, and PF is personal fouls.
+
+PTS is short for points. A prefix of OPP denotes that the stat is from the opponent and these are included as an opponents points scored and percentage of shots made are common measures of a team's defensive performance. Finally. REB_RATE is a percentage of available defensive rebounds which were rebounded by that team and is calculated as DREB divided by DREB plus the OREB of the opponent.
+```{r, echo=FALSE} 
+colnames(nbadata)
+
+```
+ 
+
+## What are different ways you could look at this data?
+
+I plan to use all the knowledge I’ve  gained in this course to derive results from the statistical tools that R provides to shock and surprise me.
+
+I could look at this data as a whole. I could separate it by Wins and Losses. I could look at it by year and compare it to the champion from that season. I could look at data by team. I could sort according to the margin of victory or defeat. I could look at the data in a univariate analysis, a bivariate analysis, or a multivariate analysis.
+
+The biggest portion of the next phase of this project will be performing various exploratory data analysis tasks such as looking at histograms and correlation matrixes. Different scatter plots will also help to look at the data to gain new insight.
+
+
+## How do you plan to slice and dice the data?
+The most important way to slice and dice the data is to analyze wins and losses separately or side-by-side and compare the various summary statistics. In the following code chunk I create two new data frames one corresponding to wins and one corresponding to losses.
+
+```{r}
+nbawins <- subset(nbadata, WL==1)
+nbalosses <- subset(nbadata, WL==0)
+```
+
+```{r}
+nbadata %>% 
+  select(WL, DREB, STL, BLK, OPP_FG_PCT)%>%
+  explore_all(target = WL)
+```
+
+```{r}
+nbadata %>% 
+  select(TEAM_ABBREVIATION, WL, DREB, BLK, OPP_FG_PCT) %>% 
+  explore_all(target = TEAM_ABBREVIATION)
+```
+
+As discussed in the previous section, there are several ways to look at the data and thus several ways to slice and dice it. Subsetting the data set based on various things such as team, season, margin of victory/defeat, and over time.
+
+## How could you summarize your data to answer key questions?
+I could summarize the data according to various things to answer my questions. If I collect summary statistics such as means and median and compare the results from wins versus losses this should reveal some key information.
+
+```{r echo=FALSE}
+print("Mean of Steals by Winning Team")
+mean(nbawins$STL)
+print("Mean of Steals by Losing Team")
+mean(nbalosses$STL)
+
+print("Median of Steals by Winning Team")
+median(nbawins$STL)
+print("Median of Steals by Losing Team")
+median(nbalosses$STL)
+
+print("Mean of Blocks by Winning Team")
+mean(nbawins$BLK)
+print("Mean of Blocks by Losing Team")
+mean(nbalosses$BLK)
+
+print("Median of Blocks by Winning Team")
+median(nbawins$BLK)
+print("Median of Blocks by Losing Team")
+median(nbalosses$BLK)
+
+```
+
+### Correlation Matrix
+
+```{r}
+nbadata %>%
+  select_if(is.numeric) %>%
+  correlate() %>%
+  focus(WL)%>%
+  print(n = nrow(.))
+```
+
+```{r}
+nbadata %>%
+  select_if(is.numeric)%>%
+  cor()%>%
+  corrplot()
+
+```
+
+
+
+## What types of plots and tables will help you to illustrate the findings to your questions? 
+Scatter plots (geom_point()), bar charts (geom_bar() or geom_column()), kernel density estimate graphs (geom_density()), and histograms (geom_histogram())
+
+```{r}
+ggplot(nbadata, aes(PLUS_MINUS, DREB))+geom_point()
+
+```
+
+```{r}
+ggplot(nbawins, aes(STL, color=WL))+geom_bar()+geom_bar(data=nbalosses, aes(STL), alpha=.4)
+
+```
+
+```{r}
+ggplot(nbawins, aes(BLK), labs(title='Blocks in Wins vs. Losses', 
+                               caption='Purple and dark gray are for Wins, 
+                               Yellow and light gray for losses'))+
+  geom_histogram(bins=20, color='purple')+
+  geom_histogram(data=nbalosses, color='yellow', alpha=.5, bins=20)
+
+```
+
+## Do you plan on incorporating any machine learning techniques to answer your research questions? Explain.
+I plan on performing Logistic Regression which is a form of Machine Learning. By mixing and matching variables with a high correlation hopefully I might be able to deduce which statistics have the highest impact on winning and whether any or more of those statistics are defensive related.
+
+
+## Questions for future steps.
+
+How to do the hardcore statistical analysis techniques and applying those with visualizations and incorporating everything into a nice, neat, easy to read Markdown document.
+
+Is it worth it to try to derive and calculate a statistic for possesions so stats could be pace adjusted.
+
+# Step 3
+
+```{r, include=FALSE}
+library(class)
+library(caTools)
+library(knitr)
+library(ggplot2)
+library(GGally)
+library(readxl)
+library(lm.beta)
+library(Rcmdr)
+library(QuantPsyc)
+```
+
+## Introduction.
+
+“Does defense win championships in the sport of basketball?” This is an adage which seems as old as the existence of team sports. Although, the phrase was originally coined in reference to the game of football due to my personal interest and the fact that this phrase has constantly been applied to basketball as well I will direct my attention at this question in the frame of basketball.
+
+Why should someone be interested in this? I am interested in this and I don’t really know why besides the fact that I am a fan of basketball. As the three point shot has gained popularity and scores have trended upward maybe the vast majority of teams are ignoring the best way to get better which is to improve their defense. To the financially minded, the NBA generates revenues of around 10 billion dollars annually. A definitive answer to this question would help guide scouting, recruiting, drafting, roster and coaching strategies.
+
+## The problem statement you addressed. 
+
+Are teams  who perform well defensively during the regular season more likely to win their games?
+
+Or in other words, Which traditional defensive stats are the best predictor of success? Points Allowed? Steals? Blocks?
+
+## How you addressed this problem statement.
+
+Through using statistical analysis, exploratory data analysis, regression and machine learning I was able to somewhat address the problem statement, at least in part. 
+
+I accessed the historical data from the NBA using all years since defensive stats have been kept (1986) The data was collected in April 2019 from the NBA’s website. The original has 29 variables. Some are redundant, such as team name, team abbreviation, and team ID. Video available is numerical but seems more like a factor or binary and won’t be useful for my analysis. Each game is recorded twice once for each game participating. Game ID numbers are unique but Team IDs are the same across the multiple seasons.
+
+My first step was to collect and merge 34 data sets to create a single .csv file. The next thing I tackled was cleaning the data set, by normalizing overtime games, removing NA values, and empty rows. Another part of my cleaning phase was removing unnecessary variables. Finally, I created new variables which were calculated from values of existing variables. At this point I had arrived at the data set which I would further analyze which consisted of 77884 rows of 24 variables which constitutes the box score statistics of 38942 regular season NBA games. (Some superfluous or non-numerical variables remained such as Team Abbreviation, Game Date, Minutes, and offensive statistics like Offensive Rebounds, points, and shot statistics and were purposely left in case they might prove useful in later examination. They also serve to contrast with relationships between Winning/Losing and defensive stats.)
+```{r}
+setwd("C:/Users/Daniel/Documents/data/proj")
+nbadata <- read.csv("nbagames1985to2019_cleaned.csv")
+# Team Abbreviation column name had to be fixed for some reason.
+names(nbadata)[names(nbadata) == "ï..TEAM_ABBREVIATION"] <- "TEAM_ABBREVIATION"
+
+```
+
+After cleaning and loading my data I plan to analyze it. First, I will perform some exploratory data analysis tasks such as to visualize and provide summarized statistics on a monovariate and bivariate level to start picking up on some relationships which may prove useful in the later analysis.
+
+The next step is to fully visualize the data and explore correlations which will occur directly before the next step. Finally, I will perform some basic machine learning in the form of logistic regression while focusing on the prediction of the WL (Win/Loss) variable.. Simple and multiple regression is possible with Plus/Minus but I suspect will prove to be less insightful than the logistic regression. Next, if it appears it will be fruitful I may engage in a clustering exercise.
+
+Lastly, I will interpret the results of my analysis and provide the conclusions based on what findings may arise.
+
+## Analysis
+
+### Splitting the Data
+
+Most of my analysis aims to look at the effects on winning and therefore I will split the data based on outcome whether the game was a Win or a Loss.
+```{r}
+nbawins <- subset(nbadata, WL==1)
+nbalosses <- subset(nbadata, WL==0)
+
+```
+
+### Monovariate Analysis
+
+In the following section I will perform summary statistics and histograms while looking at each variable individually.
+
+#### Summary Statistics
+
+```{r echo=FALSE}
+
+print("Mean of Blocks by All Teams")
+mean(nbadata$BLK)
+
+print("Mean of Steals by All Teams")
+mean(nbadata$STL)
+
+print("Mean of Defensive Rebounds by All Teams")
+mean(nbadata$DREB)
+
+
+print("Mean of Rebounding Rate by All Teams")
+mean(nbadata$REB_RATE, na.rm = TRUE)
+print("Mean of Rebounding Rate by Winning Team")
+mean(nbawins$REB_RATE, na.rm = TRUE)
+print("Mean of Rebounding Rate by Losing Team")
+mean(nbalosses$REB_RATE, na.rm = TRUE)
+
+```
+
+```{r echo=FALSE}
+nbastatsummary <- nbadata %>% group_by(WL) %>%
+  summarize(
+    Max_Blocks=max(BLK),
+    Average_Blocks=mean(BLK),
+    Min_Blocks=min(BLK),
+    Max_Steals = max(STL),
+    Average_Steals = mean(STL),
+    Min_Steals = min(STL),
+    Max_Rebounds = max(DREB),
+    Average_Rebounds = mean(DREB),
+    Min_Rebounds = min(DREB),
+    
+    )
+print('Summary Statistics grouped by Wins and Losses(recall Win=1)')
+print(nbastatsummary, width=Inf)
+```
+
+#### Histograms
+
+
+```{r, echo=FALSE}
+ggplot(nbawins, aes(STL))+geom_histogram(bins=27)+ggtitle('Histogram of Steals for Winning Teams')
+```
+```{r, echo=FALSE}
+ggplot(nbalosses, aes(STL))+geom_histogram(bins=24)+ggtitle('Histogram of Steals for Losing Teams')
+```
+
+```{r, echo=FALSE}
+ggplot(nbawins, aes(BLK))+geom_histogram(bins=23)+ggtitle('Histogram of Blocks for Winning Teams')
+```
+```{r, echo=FALSE}
+ggplot(nbalosses, aes(BLK))+geom_histogram(bins=19)+ggtitle('Histogram of Blocks for Losing Teams')
+```
+
+```{r, echo=FALSE}
+ggplot(nbawins, aes(DREB))+geom_histogram(bins=42)+ggtitle('Histogram of Defensive Rebounds for Winning Teams')
+```
+```{r, echo=FALSE}
+ggplot(nbalosses, aes(DREB))+geom_histogram(bins=43)+ggtitle('Histogram of Defensive Rebounds for Losing Teams')
+```
+
+**Based on the summary statistics and histograms both agree that a winning team will typically get 1 more steal, 1 more block, and about 4 more rebounds than the losing team. This however is not sufficient. The next step will be looking at a correlation matrix.**
+
+### Bivariate Analysis
+
+In the next section I will be looking at how variables compare with one another one at a time but focusing on the Win/Loss column. I will do this through the use of one column of a correlation matrix and a  upper correlation matrix heatmap plot.
+#### Correlation Matrix Focused on Wins and Losses
+
+```{r}
+nbadata %>%
+  select_if(is.numeric) %>%
+  correlate() %>%
+  focus(WL)%>%
+  print(n = nrow(.))
+```
+**The correlation matrix shows the correlation scores with the WL column and whether the correlations are negative or positive.**
+
+*Ignoring points, plus_minus, and shooting percentages for the time being, the highest positive correlations ranked in order are defensive rebounds and total rebounds. The lowest positive correlations, in descending order are Blocks, Steals and Rebounding Rate. *
+
+*The highest negative correlations, ranked, are opponent's field goal percentage and opponent's points. The lowest negative correlations, descending, are opponent's 3 point field goal percentage, personal fouls, turnovers, and offensive rebounds*
+
+The last two were most surprising, but perhaps shouldn't have been. Turnovers put your team in a precarious defensive position. Likewise, although the effect was small, going for offensive rebounds will also tend to cause your team to be chasing on defense rather than getting the time to set up.
+
+#### Correlation Plot Heatmap
+
+```{r}
+nbadata %>%
+  select_if(is.numeric)%>%
+  cor()%>%
+  corrplot()
+  
+
+```
+
+The heatmap shows that the correlations with Plus-Minus practically mirror those with Win/Loss.
+
+Besides made shots the biggest (positive) correlation with plus-minus is rebounds. A surprising result is the stronger correlation between 3 point shots made and 3 point shots taken than 3 point shots made and 3 point shots attempted. This indicates that perhaps there is a diminishing return on taking more three point shots. Perhaps once the defense sees you make enough threes they adjust to make future ones more challenging.
+
+You can also see from the heatmap that Defensive Rebounds is positively correlated with Blocks and negatively correlated with steals. Perhaps this makes sense as someone who is tall or has superior jumping ability is more likely to be able to challenge shots and therefore get blocks whereas someone of a shorter stature or with excellent speed is more likely to be able to steal the ball but less likely to compete with the tall jumpers and get rebounds.
+
+#### Additional Bivariate Plots
+
+I am including the following plots although I realize that due to the enormous size of the data set not much can really be gained by observing these visualizations.
+
+```{r}
+ggplot(nbadata, aes(PLUS_MINUS, DREB))+geom_point(alpha=.02)+
+  labs(title='Scatterplot of Plus-Minus vs Defensive Rebounds')
+
+```
+
+```{r}
+ggplot(nbawins, aes(STL, color=WL))+geom_bar()+geom_bar(data=nbalosses, aes(STL), alpha=.4)+
+  labs(title='Bar Chart of Steals with Wins vs Losses')
+
+```
+
+```{r}
+ggplot(nbawins, aes(BLK))+
+  geom_histogram(bins=20, color='purple')+
+  geom_histogram(data=nbalosses, color='yellow', alpha=.5, bins=20)+
+  labs(title='Blocks in Wins vs. Losses')+
+  labs(caption='Purple and dark gray are for Wins, 
+                               Yellow and light gray for losses')
+
+```
+
+
+### Machine Learning
+
+The next phase is really leveraging the power of R and algorithms to derive further insight from my data set
+
+#### Simple Linear Regression
+
+Simple linear regression model using opponentt's shooting percentage.
+
+```{r}
+
+simp_lm1 <- lm(formula = PLUS_MINUS ~ OPP_FG_PCT, data = nbadata)
+summary(simp_lm1)
+lm.beta(simp_lm1)
+confint(simp_lm1)
+anova(simp_lm1)
+plot(simp_lm1)
+```
+
+Another simple linear regression model but using rebounds.
+
+```{r}
+simp_lm2 <- lm(formula = PLUS_MINUS ~ DREB, data = nbadata)
+summary(simp_lm2)
+lm.beta(simp_lm2)
+confint(simp_lm2)
+anova(simp_lm2)
+plot(simp_lm2)
+```
+
+#### Multiple Linear Regression
+
+```{r}
+mult_lm <- glm(formula = PLUS_MINUS ~ DREB + OPP_FG_PCT + OPP_PTS+ STL + BLK + REB_RATE + OPP_3FG_PCT, data = nbadata)
+summary(mult_lm)
+lm.beta(mult_lm)
+confint(mult_lm)
+anova(mult_lm)
+plot(mult_lm)
+```
+
+#### Logistic Regression
+
+In order to perform the logistic regression I have to split my data into testing and training portions. I do this according to a 4 to 1 ratio. I need to change my WL column from numeric into factor. This first regression is performed using only Blocks and Steals but I will try other combinations to get a higher accuracy
+
+```{r}
+splits <- sample.split(nbadata, SplitRatio = 0.8)
+trainer <- subset(nbadata, splits == "TRUE")
+tester <- subset(nbadata, splits == "FALSE")
+nbadata$WL <- as.factor(nbadata$WL)
+glm_bin <- glm(WL ~ STL + BLK, data = trainer, family = "binomial")
+resp <- predict(glm_bin, tester, type = "response")
+resp <- predict(glm_bin, trainer, type = "response")
+confmatrix <- table(Actual_Value=trainer$WL, Predicted_Value = resp > 0.5)
+confmatrix
+accuracy <- (confmatrix[1,1] + confmatrix[2,2]) / sum(confmatrix)
+accuracy
+```
+Accuracy is only 59% which is good but could be better.
+
+*Another Logistic Regression but using Rebound Rate and Opponent's 3 pt. percentage*
+
+```{r, echo=FALSE}
+splits <- sample.split(nbadata, SplitRatio = 0.8)
+trainer <- subset(nbadata, splits == "TRUE")
+tester <- subset(nbadata, splits == "FALSE")
+nbadata$WL <- as.factor(nbadata$WL)
+glm_bin <- glm(WL ~ REB_RATE + OPP_3FG_PCT, data = trainer, family = "binomial")
+resp <- predict(glm_bin, tester, type = "response")
+resp <- predict(glm_bin, trainer, type = "response")
+confmatrix <- table(Actual_Value=trainer$WL, Predicted_Value = resp > 0.5)
+confmatrix
+accuracy <- (confmatrix[1,1] + confmatrix[2,2]) / sum(confmatrix)
+accuracy
+```
+
+*Another Logistic Regression but using Rebounds and Blocks*
+
+```{r, echo=FALSE}
+splits <- sample.split(nbadata, SplitRatio = 0.8)
+trainer <- subset(nbadata, splits == "TRUE")
+tester <- subset(nbadata, splits == "FALSE")
+nbadata$WL <- as.factor(nbadata$WL)
+glm_bin <- glm(WL ~ REB + BLK, data = trainer, family = "binomial")
+resp <- predict(glm_bin, tester, type = "response")
+resp <- predict(glm_bin, trainer, type = "response")
+confmatrix <- table(Actual_Value=trainer$WL, Predicted_Value = resp > 0.5)
+confmatrix
+accuracy <- (confmatrix[1,1] + confmatrix[2,2]) / sum(confmatrix)
+accuracy
+```
+
+*Another Logistic Regression but using Defensive Rebounds and Opponent's Shooting Percentage*
+
+```{r, echo=FALSE}
+splits <- sample.split(nbadata, SplitRatio = 0.8)
+trainer <- subset(nbadata, splits == "TRUE")
+tester <- subset(nbadata, splits == "FALSE")
+nbadata$WL <- as.factor(nbadata$WL)
+glm_bin <- glm(WL ~ DREB + OPP_FG_PCT, data = trainer, family = "binomial")
+resp <- predict(glm_bin, tester, type = "response")
+resp <- predict(glm_bin, trainer, type = "response")
+confmatrix <- table(Actual_Value=trainer$WL, Predicted_Value = resp > 0.5)
+confmatrix
+accuracy <- (confmatrix[1,1] + confmatrix[2,2]) / sum(confmatrix)
+accuracy
+```
+
+
+*Another Logistic Regression but using Defensive Rebounds and Opponent's Shooting Percentage and Opponent's Points*
+
+```{r, echo=FALSE}
+splits <- sample.split(nbadata, SplitRatio = 0.8)
+trainer <- subset(nbadata, splits == "TRUE")
+tester <- subset(nbadata, splits == "FALSE")
+nbadata$WL <- as.factor(nbadata$WL)
+glm_bin <- glm(WL ~ DREB + OPP_FG_PCT + OPP_PTS, data = trainer, family = "binomial")
+resp <- predict(glm_bin, tester, type = "response")
+resp <- predict(glm_bin, trainer, type = "response")
+confmatrix <- table(Actual_Value=trainer$WL, Predicted_Value = resp > 0.5)
+confmatrix
+accuracy <- (confmatrix[1,1] + confmatrix[2,2]) / sum(confmatrix)
+accuracy
+```
+
+*Another Logistic Regression but using almost every correlated defensive statistic*
+
+```{r, echo=FALSE}
+splits <- sample.split(nbadata, SplitRatio = 0.8)
+trainer <- subset(nbadata, splits == "TRUE")
+tester <- subset(nbadata, splits == "FALSE")
+nbadata$WL <- as.factor(nbadata$WL)
+glm_bin <- glm(WL ~ DREB + OPP_FG_PCT + OPP_PTS+ STL + BLK + REB_RATE, data = trainer, family = "binomial")
+resp <- predict(glm_bin, tester, type = "response")
+resp <- predict(glm_bin, trainer, type = "response")
+confmatrix <- table(Actual_Value=trainer$WL, Predicted_Value = resp > 0.5)
+confmatrix
+accuracy <- (confmatrix[1,1] + confmatrix[2,2]) / sum(confmatrix)
+accuracy
+```
+
+*Another Logistic Regression almost same as above but adding Opponent's 3 pt. %*
+
+```{r, echo=FALSE}
+splits <- sample.split(nbadata, SplitRatio = 0.8)
+trainer <- subset(nbadata, splits == "TRUE")
+tester <- subset(nbadata, splits == "FALSE")
+nbadata$WL <- as.factor(nbadata$WL)
+glm_bin <- glm(WL ~ DREB + OPP_FG_PCT + OPP_PTS+ STL + BLK + REB_RATE + OPP_3FG_PCT, data = trainer, family = "binomial")
+resp <- predict(glm_bin, tester, type = "response")
+resp <- predict(glm_bin, trainer, type = "response")
+confmatrix <- table(Actual_Value=trainer$WL, Predicted_Value = resp > 0.5)
+confmatrix
+accuracy <- (confmatrix[1,1] + confmatrix[2,2]) / sum(confmatrix)
+accuracy
+```
+
+*Another Logistic Regression almost same as above but removing Rebound Rate*
+
+```{r, echo=FALSE}
+splits <- sample.split(nbadata, SplitRatio = 0.8)
+trainer <- subset(nbadata, splits == "TRUE")
+tester <- subset(nbadata, splits == "FALSE")
+nbadata$WL <- as.factor(nbadata$WL)
+glm_bin <- glm(WL ~ DREB + OPP_FG_PCT + OPP_PTS+ STL + BLK + OPP_3FG_PCT, data = trainer, family = "binomial")
+resp <- predict(glm_bin, tester, type = "response")
+resp <- predict(glm_bin, trainer, type = "response")
+confmatrix <- table(Actual_Value=trainer$WL, Predicted_Value = resp > 0.5)
+confmatrix
+accuracy <- (confmatrix[1,1] + confmatrix[2,2]) / sum(confmatrix)
+accuracy
+```
+
+*Another Logistic Regression almost same as above but removing Opponent's 3 pt. %*
+
+```{r, echo=FALSE}
+splits <- sample.split(nbadata, SplitRatio = 0.8)
+trainer <- subset(nbadata, splits == "TRUE")
+tester <- subset(nbadata, splits == "FALSE")
+nbadata$WL <- as.factor(nbadata$WL)
+glm_bin <- glm(WL ~ DREB + OPP_FG_PCT + OPP_PTS+ STL + BLK, data = trainer, family = "binomial")
+resp <- predict(glm_bin, tester, type = "response")
+resp <- predict(glm_bin, trainer, type = "response")
+confmatrix <- table(Actual_Value=trainer$WL, Predicted_Value = resp > 0.5)
+confmatrix
+accuracy <- (confmatrix[1,1] + confmatrix[2,2]) / sum(confmatrix)
+accuracy
+```
+
+*Another Logistic Regression almost same as above but removing Blocks*
+
+```{r, echo=FALSE}
+splits <- sample.split(nbadata, SplitRatio = 0.8)
+trainer <- subset(nbadata, splits == "TRUE")
+tester <- subset(nbadata, splits == "FALSE")
+nbadata$WL <- as.factor(nbadata$WL)
+glm_bin <- glm(WL ~ DREB + OPP_FG_PCT + OPP_PTS+ STL, data = trainer, family = "binomial")
+resp <- predict(glm_bin, tester, type = "response")
+resp <- predict(glm_bin, trainer, type = "response")
+confmatrix <- table(Actual_Value=trainer$WL, Predicted_Value = resp > 0.5)
+confmatrix
+accuracy <- (confmatrix[1,1] + confmatrix[2,2]) / sum(confmatrix)
+accuracy
+```
+
+The highest accuracy achieved is by the 7th model with an accuracy of 72.95%. This model surprisingly wasn't simply the model which contained the most predictive variables but was the one which contained precisely Defensive Rebounds, Steals, Blocks, Opponent's Field Goal %, Opponent's 3 point Field Goal %, and Opponent's points.
+
+However, if you look at all of the final 5 models which range between 72.27 and 72.95% the exact choice of variables is not as important as having a sufficient amount of predictive variables.
+
+By comparing the earlier models you can see which variables have a greater predictive power such as defensive rebounds and opponent's field goal percentage.
+
+
+```{r}
+nbadata %>%
+  ggplot(aes(x = DREB,
+             y = WL)) +
+  geom_point(alpha = .4)+
+  geom_smooth(method="lm") +
+  labs(y = "WL (1 = WIN, 0 = LOSS)",
+       title = "Win or Loss by Rebounds")
+
+```
+
+
+```{r}
+  ggplot(nbadata, aes(x = OPP_FG_PCT,
+             y = WL)) +
+  geom_smooth(method="lm") +
+  geom_point(alpha = .4) +
+  labs(y = "WL (1 = WIN, 0 = LOSS)",
+       title = "Win or Loss by Opp's FG %") 
+
+```
+
+
+These next two chunks were an ambition of mine to compare logistic and linear regression but I was not able to make it work.
+```{r, eval=FALSE}
+simple_linear_model = lm(data = nbadata,
+                         WL ~ OPP_FG_PCT)
+
+
+simple_logistic_model = glm(data = nbadata,
+                            WL ~ OPP_FG_PCT,
+                            family = binomial())
+
+
+nbadata$lr_log_odds = predict(simple_logistic_model)
+nbadata$logistic_predictions = predict(simple_logistic_model, type = "response")
+
+nbadata %>%
+  ggplot(aes(x = OPP_FG_PCT,
+             y = lr_log_odds)) +
+  geom_point() +
+  labs(y = "log(odds)",
+       title = "log(odds) ~ OPP's FG %") +
+  theme_minimal()
+
+```
+
+```{r, eval=FALSE}
+nbadata$linear_predictions = predict(simple_linear_model)
+
+reshaped = nbadata %>%
+  select(OPP_FG_PCT, logistic_predictions, WL, linear_predictions) %>%
+  melt(id = c("OPP_FG_PCT", "WL"), variable = "model")
+
+reshaped %>%
+  ggplot(aes(x = OPP_FG_PCT,
+             y = value,
+             color = model)) +
+  geom_line() +
+  geom_point(aes(x = OPP_FG_PCT,
+                 y = WL)) +
+  theme_minimal()
+```
+
+The following is a check on our superior model from before checking z scores, significance codes,  Pr(>|z|) and deviance.
+
+```{r}
+logistic_model_nba = glm(data = nbadata,
+                            WL ~ DREB + OPP_FG_PCT + OPP_PTS+ STL + BLK + OPP_3FG_PCT,
+                            family = binomial())
+
+summary(logistic_model_nba)
+```
+
+## Implications
+
+Based on the various analyses performed by me I would say defense does win NBA games. Without comparing directly to offense it is difficult to say if good defense beats good offense.
+
+Some of the results which I found was that the best defensive predictors of success are Defensive Rebounds and Opponent's Field Goal percentage. Traditional statistics like Steals and Blocks did have an effect but not as large as I might have thought.
+
+Some ways to try to ensure your team's victory is to get more steals and more blocks. However, you don't have to have much more even one additional block or one additional steal over your opponent makes a significant difference. The most important way to try to gain victory for your squad is to secure the defensive rebounds. This was demonstrated two fold by analyzing the DREB variable and the REb_RATE variable.
+
+I was surprised that choice of predictors did not have as strong of an impact on the logistic regression model. Almost every model was at or above 60%, while models which contained several predictors were usually hovering around 72% accuracy. It goes to show that it is not as important to excel in one particular area but to be pretty good at a lot of aspects of defense.
+
+One surprising result was the stronger correlation between 3 point shots made and 3 point shots taken than 3 point shots made and 3 point shots attempted. This combined with the negative correlation of Offensive Rebounds and winning could potentially lead to a new strategy. Since 3 point shots have a diminishing return it is better to spend more energy on rebounding off the defensive glass than on contesting every 3 point shot. Offensive rebounds should be fought for but not so hard as to get out of position.
+
+I was also shocked that blocks had a greater than steals. This is because not every block results in a turnover, or change of possesion. However, due to the fact that blocks are  less common than steals makes them more impactful.
+
+My biggest takeaway was that while traditional defensive statistics like steals and blocks were important to bettering a team's chance of achieving success the two greatest factors were other defensive statistics which are not always thought of as such. The greatest predictors of team success on the defensive side of things were opponent's field goal percentage and rebounds. It sort of makes sense that these two go hand in hand as they do feed into each other. The more shots missed the more rebounding opportunities there are (although you must capitalize) and the more times the ball doesn't go in the rim that is more times that the opponent missed it.
+
+The implication of this is that a good defender can be measured by their ability to challenge, contest, and make opponent's shots more difficult all the while securing the rebound and thus their team's chance to take it the other way and try to score.
+
+The one way in which I can see this research especially being applied is in the importance of minimizing the opponent's field goal percentage. Due to the importance of this statistic I believe it should gain in popularity and be more commonly recorded, reported, and looked at. By making OPP_FG_PCT a more mainstream statistic I could see benefits to NBA teams and analysts alike.
+
+## Limitations
+
+
+Some of the statistics are small like blocks and steals while others are large like rebound. Furthermore, some are super small like the percentages. I believe without doing some kind of normalizing the correlation scores can't be fully trusted although the correlation directions are all reliable. I don't know what caused it but it seems that there might have been missing values in the last 3 variables. I was able to get the means to show up by using na.rm=TRUE. Also, the correlation matrix did work. However, the last 3 variables did not appear correctly in the correlation matrix heatmap plot.
+
+I don't believe including more seasons would've improved the analysis but perhaps including more recent seasons would have helped for the implications of the analysis' insights to be more relevant to today's game. 
+
+I was not able to find a way to conveniently import the champions, playoff positions or transform the data to calculate the regular season records by team. This might have proved insightful. Also, for the sake of being concise I didn't do much grouping by teams which might have also been an area where my analysis lacked.
+
+By only looking at defensive stats I was not able to compare my results to a similar regression using offensive stats. Of course defense does have an effect on winning, but does the effect of good defense match, outweigh, or fall short, of the effect of a good offense.
+
+Finally, I believe I was slightly limited by my knowledge of R. With a little more time I could have increased my knowledge thus deepening the analysis and beautifying the final product of this project.
+
+## Concluding Remarks
+
+This was a fun project which challenged me, taught me, and forced me to learn base packages, commonly used packages, and lesser known packages. I do believe I could have maybe improved by including things such as accuracy testing and signifigance scores and by better reporting the results of the ANOVA. I know for certain I could have simplified my code with increased usage of piping.
+
+I believe I addressed the question but I don't know if I really fully answered it.
