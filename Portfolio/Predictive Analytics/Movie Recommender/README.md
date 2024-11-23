@@ -1,1 +1,2 @@
-Readme
+This notebook contains a Python program which uses the MovieLens dataset to create a recommender system. This recommender is a simple, naive recommender based only on correlation between ratings provided by users who rated the movie provided.
+As long as the movie inputted is in the dataset and contains enough data to proceed you will be given a list of recommended movies which is other movies rated highly by users who rated the given movie highly.
