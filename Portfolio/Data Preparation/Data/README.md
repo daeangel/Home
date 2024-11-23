@@ -1,7 +1,3 @@
-This notebook used a collection of CSV files containing NBA game box score data from the years of 1986 to 2019 and combined them into a single CSV. This range was selected as 1986 was the first year
-that statistics such as blocks were collected and marks the beginning of the 3 point era.
+The CSV's in this repository were gathered from a collection of box score data compiled by an LA Times writer, Ryan Menezes, who gathered the data for a story on Lawler's Law(http://www.insidehoops.com/ralph-lawler-032709.shtml).
 
-Data Preparation was performed on the dataset which include typical data cleaning steps like fixing of Null and Missing Data using Imputation or Deletion. Other data cleaning was done such as removing
-uneccesary columns, renaming column headers, and feature extraction by creating percentages from Attempts and Misses Features, and columns for Plus/Minus and Win/Loss.
-
-This cleaned dataset demonstrates an ability to perform data preparation and cleaning and also provides a nice clean dataset which provides ample opportunity for interesting analysis
+The data was gathered from the LA Times' writer's Data github repo (https://github.com/ryanvmenezes/lawlers-law/tree/master/data/logs).
